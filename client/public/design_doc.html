@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listen Together - Music Streaming Architecture & System Design</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #1e293b;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #ffffff;
+        }
+        h1, h2, h3, h4 {
+            color: #0f172a;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 8px;
+            margin-top: 36px;
+        }
+        p, li {
+            font-size: 15.5px;
+            color: #334155;
+        }
+        ul, ol {
+            margin-bottom: 20px;
+            padding-left: 24px;
+        }
+        .header-badge {
+            display: inline-block;
+            background: #4f46e5;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        .mermaid {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            display: flex;
+            justify-content: center;
+            overflow-x: auto;
+        }
+        code {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13.5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 24px 0;
+            font-size: 14.5px;
+        }
+        th, td {
+            border: 1px solid #cbd5e1;
+            padding: 10px 14px;
+            text-align: left;
+        }
+        th {
+            background-color: #f1f5f9;
+            font-weight: 700;
+        }
+        .highlight-box {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 16px 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 20px 0;
+        }
+        .print-btn {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        @media print {
+            .print-btn { display: none; }
+            body { max-width: 100%; padding: 0; }
+        }
+    </style>
+    <!-- Include Mermaid.js for rendering diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</head>
+<body>
+
+    <button onclick="window.print()" class="print-btn">🖨️ Print or Save as PDF</button>
+
+    <div class="header-badge">QUESTION 2 SYSTEM DESIGN DELIVERABLE (15 MARKS)</div>
+    <h1>System Architecture & Design Document: Listen Together</h1>
+    <p><strong>Music Streaming with Shared Listening Rooms & Sub-200ms Synchronized Playback</strong></p>
+
+    <div class="highlight-box">
+        <strong>Scale & Target Requirements:</strong>
+        <ul>
+            <li><strong>20 Million MAU</strong> | <strong>2 Million peak concurrent listeners</strong></li>
+            <li><strong>50 Million</strong> track catalogue</li>
+            <li><strong>200,000 shared rooms</strong> open at peak (2 up to 5,000 listeners per room)</li>
+            <li>Playback sync accuracy: <strong>sub-200ms</strong> across all participants worldwide</li>
+        </ul>
+    </div>
+
+    <hr>
+
+    <h2>1. Executive Summary</h2>
+    <p>This document details the complete backend architecture for a high-scale music streaming service featuring real-time collaborative listening rooms ("Listen Together"), comparable to Spotify Group Sessions and Discord Watch Together. The architecture decouples static audio asset delivery (handled by an Anycast Global CDN with HLS adaptive bitrate chunks) from real-time room state orchestration (powered by WebSocket gateways and a Redis Pub/Sub cluster).</p>
+
+    <hr>
+
+    <h2>2. Architecture & Sequence Diagrams</h2>
+
+    <h3>2.1 High-Level Architecture Diagram</h3>
+    <div class="mermaid">
+    graph TD
+        Client[Client Apps: Web / iOS / Android / Desktop]
+        
+        Client -->|HTTPS / REST| APIGW[Global API Gateway / Envoy Proxy]
+        Client -->|WSS / WebSockets| SyncGW[WebSocket Ingress Gateway]
+        Client -->|HLS Audio Chunks| CDN[Global Anycast CDN - Fastly / Cloudflare]
+        
+        CDN --> AudioStorage[(AWS S3 / Cloud Storage - Master Audio Chunks)]
+        
+        SyncGW --> SyncCluster[Room Sync Service Cluster]
+        SyncCluster -->|Pub/Sub Fan-out| RedisMesh[Redis Enterprise Pub/Sub Mesh]
+        SyncCluster -->|Room State & CRDT Queues| RoomDB[(Amazon DynamoDB Global Tables)]
+        
+        APIGW --> AuthSvc[Authentication & Permissions]
+        APIGW --> CatalogSvc[Catalog & Search Service]
+        APIGW --> IngestSvc[Ingestion & Transcoding Pipeline]
+        
+        CatalogSvc --> Elasticsearch[Elasticsearch Cluster - Search-as-you-type]
+        CatalogSvc --> CatalogDB[(PostgreSQL Aurora - Metadata Master)]
+        
+        SyncCluster -->|Playback Events| Kafka[Apache Kafka Event Bus]
+        APIGW -->|User Actions| Kafka
+        Kafka --> AnalyticsWorker[Analytics Workers]
+        Kafka --> RoyaltiesProcessor[Royalties Settlement Engine]
+        AnalyticsWorker --> ClickHouse[(ClickHouse OLAP Database)]
+    </div>
+
+    <h3>2.2 Sequence Diagram: Host Presses Pause in a Room of 5,000 Listeners</h3>
+    <div class="mermaid">
+    sequenceDiagram
+        autonumber
+        participant Host as Host Client (Room #4092)
+        participant EdgeGW as Sync Gateway (Node A)
+        participant Redis as Redis Pub/Sub (Channel: room:4092)
+        participant ClusterNodes as Sync Worker Nodes (Nodes B..Z)
+        participant Listeners as 5,000 Listener Clients
+        participant Dynamo as DynamoDB (Room State)
+
+        Host->>EdgeGW: WSS: Event { action: 'PAUSE', trackId: 'trk_982', trackOffsetMs: 84200, clientTimestamp: 1697200000100 }
+        Note over EdgeGW: 1. Validate host authorization<br/>2. Stamp monotonic server time T0
+        
+        EdgeGW->>Dynamo: Async update state (status: PAUSED, offset: 84200)
+        EdgeGW->>Redis: PUBLISH room:4092 { action: 'PAUSE', trackOffsetMs: 84200, serverTimestamp: T0 }
+
+        par Low-Latency Broadcast across Mesh
+            Redis-->>EdgeGW: Message Delivered
+            Redis-->>ClusterNodes: Message Delivered to all subscribed nodes
+        end
+
+        par Concurrent WebSocket Push to Listeners (Fan-Out)
+            EdgeGW->>Host: ACK / Confirm Pause
+            EdgeGW->>Listeners: Push SyncEvent { action: 'PAUSE', trackOffsetMs: 84200, serverTimestamp: T0 }
+            ClusterNodes->>Listeners: Push SyncEvent { action: 'PAUSE', trackOffsetMs: 84200, serverTimestamp: T0 }
+        end
+
+        Note over Listeners: 3. Clients receive event (latency ~45-80ms)<br/>4. Pause local HTML5/Native audio pipeline at 84.200s
+    </div>
+
+    <hr>
+
+    <h2>3. Core System Components</h2>
+
+    <h3>3.1 Audio Delivery: Storage, Encoding, CDN & Fast Playback Start</h3>
+    <ul>
+        <li><strong>Encoding Pipeline:</strong> Origin masters (FLAC) are sliced into 3-second segments and encoded in AAC-LC (96k, 160k, 320k) and Opus (24k, 64k, 128k) using HLS and MPEG-DASH.</li>
+        <li><strong>Fast Playback Start:</strong> The manifest serves a lightweight initialization chunk (0.5s segment), initiating audio playback in <strong>&lt; 150ms</strong> before stepping up bitrate via Adaptive Bitrate (ABR).</li>
+        <li><strong>CDN Caching:</strong> Chunks are content-addressed (`trk_982_160k_seg042.m4s`) with 1-year immutable caching. Edge hit ratios exceed 99.2%.</li>
+    </ul>
+
+    <h3>3.2 Catalogue & Search</h3>
+    <ul>
+        <li><strong>Metadata Storage:</strong> PostgreSQL Aurora guarantees relational integrity across 50M tracks, artists, and rights.</li>
+        <li><strong>Search-as-you-type:</strong> Elasticsearch index using edge N-grams and completion suggesters executes typo-tolerant prefix search in &lt; 30ms.</li>
+        <li><strong>Publishing New Releases:</strong> Tracks are pre-indexed with UTC embargo dates. A Redis trigger activates new releases instantly without database table scans.</li>
+    </ul>
+
+    <h3>3.3 Room Sync & Sub-200ms Drift Correction</h3>
+    <ul>
+        <li><strong>NTP Clock Offset Calculation:</strong> Clients calculate round-trip latency on connect: <code>Offset = ((T1 - T0) + (T2 - T3)) / 2</code>.</li>
+        <li><strong>Smooth Micro-Adjustment Algorithm:</strong>
+            <ul>
+                <li><code>drift &lt; 50ms</code>: No adjustment (imperceptible).</li>
+                <li><code>50ms &le; drift &le; 500ms</code>: Audio player speed is micro-adjusted to 0.95x or 1.05x for 2 seconds. Zero audible audio clicks or pauses!</li>
+                <li><code>drift &gt; 500ms</code>: Hard seek to server time.</li>
+            </ul>
+        </li>
+        <li><strong>Shared Queue:</strong> Conflict-Free Replicated Data Types (CRDT - LSEQ) handle concurrent playlist additions and "Vote to Skip" voting across 5,000 users without row locks.</li>
+    </ul>
+
+    <h3>3.4 Data & Storage Architecture (Polyglot Persistence)</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Data Category</th>
+                <th>Target Database</th>
+                <th>Reasoning & Access Pattern</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Catalog & Artists</strong></td>
+                <td>PostgreSQL Aurora</td>
+                <td>ACID relational integrity, artist agreements, complex metadata joins.</td>
+            </tr>
+            <tr>
+                <td><strong>Search Index</strong></td>
+                <td>Elasticsearch Cluster</td>
+                <td>Fuzzy typo-tolerant search across 50M songs in &lt; 30ms.</td>
+            </tr>
+            <tr>
+                <td><strong>Room State & Queues</strong></td>
+                <td>DynamoDB + Redis</td>
+                <td>Sub-5ms concurrent writes, TTL auto-expiration for finished rooms.</td>
+            </tr>
+            <tr>
+                <td><strong>Playlists & History</strong></td>
+                <td>Cassandra / ScyllaDB</td>
+                <td>High write volume partitioned by user ID with linear scale.</td>
+            </tr>
+            <tr>
+                <td><strong>Royalties & Analytics</strong></td>
+                <td>Apache Kafka &rarr; ClickHouse</td>
+                <td>Append-only immutable event stream for calculating artist royalties.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>4. Reliability, Failure Scenarios & Observability</h2>
+
+    <h3>4.1 Zero-Downtime Deployments for Live Rooms</h3>
+    <p>Using Envoy connection draining, terminating pods stop taking new connections and send a WebSocket frame instructing clients to reconnect over a staggered jitter window (100–3000ms). Active listening rooms experience uninterrupted playback.</p>
+
+    <h3>4.2 Five Critical Failure Scenarios Handled</h3>
+    <ol>
+        <li><strong>Regional Outage (e.g. AWS us-east-1 goes down):</strong> Multi-region Active-Active architecture fails over DNS to us-west-2 within 15 seconds. DynamoDB Global Tables retain room state. Clients reconnect automatically.</li>
+        <li><strong>Sync Node Dies with 1,000 Live Listeners:</strong> Dropped sockets reconnect with exponential backoff. Healthy nodes reload state from DynamoDB and re-sync listeners within 400ms.</li>
+        <li><strong>Redis Pub/Sub Partition:</strong> Sentinel failover promotes replica in 3 seconds. If Pub/Sub is unavailable, nodes gracefully degrade to DynamoDB polling every 2 seconds.</li>
+        <li><strong>Royalties / Analytics DB Spike:</strong> Kafka queues buffer up to 7 days of raw play events on disk, ensuring zero revenue loss during database maintenance.</li>
+        <li><strong>Jittery Client Network:</strong> Adaptive Bitrate drops audio to 64kbps Opus while keeping WebSocket connection active, micro-accelerating (1.05x) to catch up once buffer refills.</li>
+    </ol>
+
+    <h3>4.3 Observability: Proving Sync Actually Works</h3>
+    <ul>
+        <li><code>client_sync_drift_ms</code> (p50, p95, p99): Telemetry reported by clients every 30s. Alerts if p95 &gt; 180ms.</li>
+        <li><code>sync_heartbeat_rtt_ms</code>: WebSocket ping-pong latency.</li>
+        <li><code>buffer_underrun_rate</code>: Percentage of clients experiencing audio stutter.</li>
+        <li><code>fanout_broadcast_latency_ms</code>: Latency from host pause to final client delivery.</li>
+    </ul>
+
+    <hr>
+
+    <h2>5. Team of Three: Roadmap & MVP Strategy</h2>
+
+    <h3>Phase 1: What to Build First (Months 1–3)</h3>
+    <ol>
+        <li>Static Audio via S3 + CloudFront CDN (single 160kbps AAC bitrate).</li>
+        <li>Minimal Sync Engine with Node.js + Socket.io + Redis Pub/Sub for host play/pause.</li>
+        <li>Relational catalog in PostgreSQL with basic <code>ILIKE</code> search.</li>
+        <li>Host-driven queue in Redis.</li>
+    </ol>
+
+    <h3>Phase 2: Postponed to Scale (V2 & Beyond)</h3>
+    <ol>
+        <li>Elasticsearch search-as-you-type (defer until catalog surpasses 1M tracks).</li>
+        <li>Multi-bitrate Adaptive HLS encoding.</li>
+        <li>Kafka + ClickHouse big-data royalty pipeline (use async Postgres tables initially).</li>
+        <li>Active-Active Multi-Region infrastructure.</li>
+        <li>CRDT democratic voting queue.</li>
+    </ol>
+
+</body>
+</html>
