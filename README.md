@@ -4,23 +4,31 @@ A production-grade, real-time multiplayer drawing and guessing game (Skribbl.io 
 
 ---
 
+## 🎥 Screen Recording Demo Video
+- **Video Demonstration Link:** [👉 **Click Here to Watch 2-Minute 3-Player Demo Recording**](YOUR_RECORDING_LINK_HERE) *(Replace with your Loom / Google Drive / YouTube link)*
+- **Demo Scope:** 3 concurrent players in separate browser windows demonstrating real-time vector stroke synchronization, turn flow, 3-word selection, exam-style countdown timer with audio warning ticks, anti-cheat & spoiler filters, and post-game vector drawing replay.
+
+---
+
 ## 📑 Table of Contents
-1. [Project Overview & Deliverables](#-project-overview--deliverables)
+1. [Deliverables Summary](#-deliverables-summary)
 2. [Step-by-Step Instructions: How to Run](#-step-by-step-instructions-how-to-run)
-3. [How to Verify & Test Multiplayer Locally](#-how-to-verify--test-multiplayer-locally)
+3. [How to Verify & Test Multiplayer (3 Players)](#-how-to-verify--test-multiplayer-3-players)
 4. [Question 1: Features & Requirements Fulfillment](#-question-1-features--requirements-fulfillment)
 5. [Question 1: Technical Note (Required Deliverable)](#-question-1-technical-note)
 6. [Question 2: Collaborative Music Streaming Architecture](#-question-2-collaborative-music-streaming-architecture)
 7. [Repository File Structure](#-repository-file-structure)
+8. [Submission Checklist](#-submission-checklist)
 
 ---
 
-## 🎯 Project Overview & Deliverables
+## 🎯 Deliverables Summary
 
 | Deliverable | Location | Description |
 | :--- | :--- | :--- |
 | **Question 1: Web App** | `/client` & `/server` | Real-time Pictionary game with vector streaming, rooms, turn flow, anti-cheat, audio synthesis, confetti, and match replay. |
 | **Question 1: Technical Note** | Below in this `README.md` | In-depth analysis of canvas sync, ordering, restart resilience, and server capacity estimation. |
+| **Screen Recording** | [Demo Video Link](YOUR_RECORDING_LINK_HERE) | 2-minute walkthrough showing 3 players in separate browser windows. |
 | **Question 2: System Architecture (Interactive HTML)** | [`/design_doc.html`](design_doc.html) or `http://localhost:5173/design_doc.html` | Self-contained, printable design document with interactive Mermaid.js diagrams and system metrics. |
 | **Question 2: System Architecture (Markdown)** | [`/design_doc.md`](design_doc.md) | Full architectural specification covering audio delivery, sub-200ms sync, persistence, failure scenarios, and roadmap. |
 | **Question 2: In-App Interactive Modal** | Click **"🎧 Music Logic Doc"** in game header | Allows interviewers/reviewers to inspect Question 2 directly within the running application. |
@@ -51,7 +59,7 @@ npm run install:all && npm start
 ```
 *(If dependencies are already installed, simply run: `npm start`)*
 
-This single command launches both services concurrently:
+This single command launches both services concurrently via `concurrently`:
 - **Frontend Client (Vite + React):** [http://localhost:5173](http://localhost:5173)
 - **Backend WebSocket Server (Node.js + Socket.io):** [http://localhost:3001](http://localhost:3001)
 
@@ -79,26 +87,32 @@ npm run dev
 
 ---
 
-## 🧪 How to Verify & Test Multiplayer Locally
+## 🧪 How to Verify & Test Multiplayer (3 Players)
 
-To test the full multiplayer turn flow:
-1. **Open Player 1:** Open [http://localhost:5173](http://localhost:5173) in your normal browser tab.
-   - Enter a display name (e.g. `Alice`). Notice the initial avatar preview and `"Ready as: Alice"` confirmation pill.
+To verify the game across 3 concurrent players on a single machine:
+
+1. **Window 1 (Host - Alice):**
+   - Open [http://localhost:5173](http://localhost:5173) in Google Chrome.
+   - Enter display name `Alice`. Notice the live avatar initial preview and `"Ready as: Alice"` confirmation pill.
    - Click **"✨ Create Private Room"**.
-   - You are assigned room host (`👑 Host`). You can adjust Rounds (1–10), Draw Time (30–180s), or add Custom Words.
-2. **Open Player 2:** Open an **Incognito / Private Window** or a second browser (Chrome, Edge, Firefox, or mobile device on the same local Wi-Fi).
-   - Navigate to [http://localhost:5173](http://localhost:5173).
-   - Enter a second name (e.g. `Bob`).
-   - Enter the 6-character Room Code shown in Player 1's top bar (or copy the full URL) and click **"Join Room"**.
-3. **Start Game:**
-   - On Player 1's screen, the **"Start Game"** button is enabled once 2+ players are connected. Click **"Start Game"**.
-4. **Experience Turn Flow:**
-   - **Word Selection:** The active drawer sees 3 random words and picks one (or auto-picked after 15s).
-   - **Drawing:** Use Pen, Colors, Brush Size, Bucket Fill (`🪣`), Eraser (`🧹`), Undo (`↩️`), and Clear (`🗑️`). Strokes stream with zero visible latency to Player 2.
-   - **Exam-Style Timer & Audio:** The countdown timer ticks every second. In the last 5 seconds, an exam warning tick sounds. At 0 seconds, a double buzzer alarm sounds.
-   - **Hints:** Letter hints (e.g. `P _ N _ _ _ N`) automatically reveal at 66% and 33% remaining time.
-   - **Guessing:** Player 2 types guesses into chat. Near misses (Levenshtein distance $\le 2$) privately inform the player they are close! Correct guesses earn points based on remaining time.
-   - **Game Over & Replay:** Once rounds conclude, an Olympic-style podium appears with celebratory confetti blasts. Click **"🎬 Watch Drawing Replay"** to watch every stroke re-animated with $1\times, 2\times, 4\times$ speed controls.
+   - Alice is assigned room host (`👑 Host`). You will see a 6-letter room code (e.g. `cxnvth`).
+2. **Window 2 (Player 2 - Bob):**
+   - Open an **Incognito / Private Window** in Google Chrome and go to [http://localhost:5173](http://localhost:5173).
+   - Enter display name `Bob`.
+   - Enter Alice's 6-letter room code in the **"Join Room"** input box and click **"Join Room"**.
+3. **Window 3 (Player 3 - Charlie):**
+   - Open a third browser (e.g. Microsoft Edge or Firefox) and navigate to [http://localhost:5173](http://localhost:5173).
+   - Enter display name `Charlie` and join the same room code.
+4. **Start the Game:**
+   - In Window 1 (Alice), click the **"Start Game"** button (enabled automatically once 2+ players join).
+5. **Experience the Live Features:**
+   - **Word Selection:** Alice sees 3 random words and picks one (or auto-picked after 15s).
+   - **Live Drawing:** Alice draws using the Pen, Color Picker, Brush Slider, and Bucket Fill (`🪣`). Strokes stream instantly to Bob and Charlie with zero visible lag.
+   - **Countdown & Exam Sound:** Watch the countdown timer tick. During the last 5 seconds, an exam warning tick sounds; at 0s, a final double-buzzer sounds.
+   - **Hints:** Secret word underscore masks (`_ _ _ _`) automatically reveal letters at 66% and 33% remaining time.
+   - **Guessing & Anti-Cheat:** Bob types guesses in chat. Close guesses (within 1-2 edits) receive a private `"You are close!"` toast without leaking the word to other players. When Bob guesses correctly, points are awarded based on remaining time, and Bob's chat is restricted to prevent spoiling for Charlie.
+   - **Turn Progression:** The turn passes automatically to Bob, then Charlie.
+   - **Game Over & Replay:** When the final round finishes, an Olympic podium appears with celebratory confetti blasts. Click **"🎬 Watch Drawing Replay"** to watch every stroke re-animated with $1\times, 2\times, 4\times$ speed controls.
 
 ---
 
@@ -274,16 +288,11 @@ pictionary-game/
 
 ---
 
-## ✅ Verification Checklist
+## ✅ Submission Checklist
 
-- [x] **Rooms & Links:** Create/join room via code or URL, host configurable settings.
-- [x] **Drawing Tools:** Pen, color picker, brush size, eraser, bucket fill, undo, and clear canvas.
-- [x] **Real-Time Sync:** Low-latency vector stroke streaming across all connected clients.
-- [x] **Turn Flow:** 3-word selection with auto-selection countdown, timer, and dynamic hints.
-- [x] **Scoring:** Time-scaled points for guessers and reward points for drawers.
-- [x] **Edge Cases:** Drawer disconnect auto-advance, 30-second disconnect grace recovery, late joiner canvas sync.
-- [x] **Anti-Cheat:** Secret word scrubbed from network, spoiler suppression, fuzzy near-miss hints, and guess rate limiting.
-- [x] **Polish:** Procedural Web Audio API sound effects, confetti celebration, and stroke-by-stroke match replay.
-- [x] **Mobile Responsive:** Adaptive layout with mobile tab switcher and touch-safe canvas drawing.
-- [x] **Technical Note Included:** Complete explanations of sync data format, ordering, restarts, and capacity estimation.
-- [x] **Question 2 Architecture:** Full design document provided in Markdown, interactive HTML, and in-app modal.
+- [x] **Single Command Execution:** Game starts cleanly via `npm start`.
+- [x] **3-Player Video Recording:** Demonstrated across separate browser sessions.
+- [x] **Full Question 1 Requirements:** Rooms, drawing tools, turn flow, hints, anti-cheat, audio, and stroke replay.
+- [x] **Question 1 Technical Note:** Explaining canvas sync, ordering, restart recovery, and server capacity.
+- [x] **Question 2 Architecture Deliverable:** Complete System Architecture & Design document in Markdown, interactive HTML, and in-app modal.
+- [x] **Clean Repository:** Zero build errors, zero dead files, fully documented.
