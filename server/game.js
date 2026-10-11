@@ -87,33 +87,6 @@ export function handleConnection(io, socket) {
     }
   });
 
-  socket.on('add_demo_players', ({ roomId }) => {
-    const room = rooms.get(roomId);
-    if (!room || room.status !== 'waiting') return;
-    
-    // Add Bob and Charlie if not present
-    if (!room.players.find(p => p.username === 'Bob 🤖')) {
-      room.players.push({
-        id: `bot_bob_${roomId}`,
-        username: 'Bob 🤖',
-        score: 0,
-        disconnected: false,
-        isBot: true
-      });
-    }
-    if (!room.players.find(p => p.username === 'Charlie 🤖')) {
-      room.players.push({
-        id: `bot_charlie_${roomId}`,
-        username: 'Charlie 🤖',
-        score: 0,
-        disconnected: false,
-        isBot: true
-      });
-    }
-    broadcastRoomState(io, roomId);
-    io.to(roomId).emit('system_message', { text: 'Bob 🤖 and Charlie 🤖 joined the room!', type: 'success' });
-  });
-
   socket.on('start_game', ({ roomId }) => {
     const room = rooms.get(roomId);
     if (!room) return;
@@ -382,19 +355,6 @@ function startTurn(io, room) {
   
   broadcastRoomState(io, room.id);
 
-  // If current drawer is bot, auto-select a word after 1.5 seconds
-  const currentDrawer = room.players[room.currentDrawerIndex];
-  if (currentDrawer && currentDrawer.isBot) {
-    setTimeout(() => {
-      if (room.status === 'word_selection' && room.currentDrawerIndex === room.players.indexOf(currentDrawer)) {
-        clearInterval(room.timerInterval);
-        room.currentWord = room.wordChoices[0];
-        startDrawing(io, room);
-      }
-    }, 1500);
-    return;
-  }
-
   room.timerInterval = setInterval(() => {
     room.timeRemaining--;
     if (room.timeRemaining <= 0) {
@@ -414,48 +374,9 @@ function startDrawing(io, room) {
      room.correctGuessers = new Set();
      room.canvasState = [];
      room.wordHints = room.currentWord.replace(/[a-zA-Z]/g, '_');
-     
-     const currentDrawer = room.players[room.currentDrawerIndex];
-     room.gameHistory.push({ round: room.currentRound, drawer: currentDrawer ? currentDrawer.username : 'Unknown', word: room.currentWord, strokes: [] });
+     room.gameHistory.push({ round: room.currentRound, drawer: room.players[room.currentDrawerIndex].username, word: room.currentWord, strokes: [] });
 
      broadcastRoomState(io, room.id);
-
-     // If current drawer is a bot, stream drawing strokes
-     if (currentDrawer && currentDrawer.isBot) {
-       const presetStrokes = getPresetDrawing(room.currentWord);
-       let strokeIdx = 0;
-       if (room.botInterval) clearInterval(room.botInterval);
-       room.botInterval = setInterval(() => {
-         if (room.status !== 'drawing' || strokeIdx >= presetStrokes.length) {
-           clearInterval(room.botInterval);
-           return;
-         }
-         const stroke = presetStrokes[strokeIdx++];
-         room.canvasState.push(stroke);
-         if (room.gameHistory.length > 0) {
-           room.gameHistory[room.gameHistory.length - 1].strokes.push({
-             ...stroke,
-             time: room.settings.drawTime - room.timeRemaining
-           });
-         }
-         io.to(room.id).emit('draw_stroke', stroke);
-       }, 45);
-     }
-
-     // If human is drawing, schedule bots to guess
-     if (room.botTimers) room.botTimers.forEach(clearTimeout);
-     room.botTimers = [];
-
-     const otherBots = room.players.filter(p => p.isBot && p.id !== currentDrawer?.id);
-     otherBots.forEach((bot, idx) => {
-       const guessDelay = (idx + 1) * 8000 + Math.floor(Math.random() * 3000);
-       const t = setTimeout(() => {
-         if (room.status === 'drawing' && !room.correctGuessers.has(bot.id)) {
-           handleBotGuess(io, room, bot);
-         }
-       }, guessDelay);
-       room.botTimers.push(t);
-     });
      
      if (room.timerInterval) clearInterval(room.timerInterval);
      room.timerInterval = setInterval(() => {
@@ -471,28 +392,6 @@ function startDrawing(io, room) {
             io.to(room.id).emit('time_tick', { timeRemaining: room.timeRemaining, wordHints: room.wordHints });
         }
     }, 1000);
-}
-
-function handleBotGuess(io, room, bot) {
-  if (room.status !== 'drawing') return;
-  room.correctGuessers.add(bot.id);
-  const points = Math.floor((room.timeRemaining / room.settings.drawTime) * 400) + 100;
-  bot.score += points;
-
-  const currentDrawer = room.players[room.currentDrawerIndex];
-  if (currentDrawer) {
-    currentDrawer.score += 50;
-  }
-
-  io.to(room.id).emit('system_message', { text: `${bot.username} guessed the word!`, type: 'success' });
-  io.to(room.id).emit('guess_correct', { username: bot.username });
-
-  const activePlayers = room.players.filter(p => !p.disconnected);
-  if (room.correctGuessers.size >= activePlayers.length - 1) {
-    endTurn(io, room);
-  } else {
-    broadcastRoomState(io, room.id);
-  }
 }
 
 function revealHint(room) {
@@ -513,8 +412,6 @@ function revealHint(room) {
 
 function endTurn(io, room, drawerLeft = false) {
   if (room.timerInterval) clearInterval(room.timerInterval);
-  if (room.botInterval) clearInterval(room.botInterval);
-  if (room.botTimers) room.botTimers.forEach(clearTimeout);
   
   room.status = 'round_end';
   io.to(room.id).emit('round_ended', { word: room.currentWord, drawerLeft });
@@ -553,7 +450,6 @@ function broadcastRoomState(io, roomId) {
         username: p.username,
         score: p.score,
         disconnected: p.disconnected,
-        isBot: !!p.isBot,
         guessed: room.correctGuessers.has(p.id)
     })),
     status: room.status,
@@ -609,79 +505,4 @@ function isCloseGuess(guess, word) {
         }
     }
     return matrix[b.length][a.length] <= 2;
-}
-
-function getPresetDrawing(word = '') {
-  const w = word.toLowerCase();
-  const strokes = [];
-  const strokeId = 'bot_' + Date.now();
-
-  function addLine(x0, y0, x1, y1, color = '#2563eb', lineWidth = 5) {
-    strokes.push({ strokeId, x0, y0, x1, y1, color, lineWidth });
-  }
-
-  function addCircle(cx, cy, r, color = '#f59e0b', lineWidth = 5) {
-    const steps = 24;
-    for (let i = 0; i < steps; i++) {
-      const a1 = (i / steps) * Math.PI * 2;
-      const a2 = ((i + 1) / steps) * Math.PI * 2;
-      addLine(cx + Math.cos(a1) * r, cy + Math.sin(a1) * r, cx + Math.cos(a2) * r, cy + Math.sin(a2) * r, color, lineWidth);
-    }
-  }
-
-  if (w.includes('sun') || w.includes('star') || w.includes('light') || w.includes('summer')) {
-    // Sun with rays
-    addCircle(400, 240, 55, '#f59e0b', 7);
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      addLine(400 + Math.cos(a) * 70, 240 + Math.sin(a) * 70, 400 + Math.cos(a) * 110, 240 + Math.sin(a) * 110, '#f59e0b', 6);
-    }
-  } else if (w.includes('house') || w.includes('home') || w.includes('building') || w.includes('castle')) {
-    // House
-    addLine(300, 230, 500, 230, '#3b82f6', 6);
-    addLine(500, 230, 500, 410, '#3b82f6', 6);
-    addLine(500, 410, 300, 410, '#3b82f6', 6);
-    addLine(300, 410, 300, 230, '#3b82f6', 6);
-    // Roof
-    addLine(280, 230, 400, 130, '#ef4444', 7);
-    addLine(400, 130, 520, 230, '#ef4444', 7);
-    // Door
-    addLine(370, 410, 370, 320, '#92400e', 6);
-    addLine(370, 320, 430, 320, '#92400e', 6);
-    addLine(430, 320, 430, 410, '#92400e', 6);
-    // Window
-    addLine(330, 270, 360, 270, '#f59e0b', 5);
-    addLine(360, 270, 360, 300, '#f59e0b', 5);
-    addLine(360, 300, 330, 300, '#f59e0b', 5);
-    addLine(330, 300, 330, 270, '#f59e0b', 5);
-  } else if (w.includes('car') || w.includes('bus') || w.includes('truck') || w.includes('train')) {
-    // Car
-    addLine(260, 340, 540, 340, '#ef4444', 8);
-    addLine(540, 340, 540, 290, '#ef4444', 8);
-    addLine(540, 290, 470, 290, '#ef4444', 8);
-    addLine(470, 290, 430, 230, '#ef4444', 8);
-    addLine(430, 230, 340, 230, '#ef4444', 8);
-    addLine(340, 230, 300, 290, '#ef4444', 8);
-    addLine(300, 290, 260, 290, '#ef4444', 8);
-    addLine(260, 290, 260, 340, '#ef4444', 8);
-    addCircle(330, 355, 22, '#1e293b', 7);
-    addCircle(470, 355, 22, '#1e293b', 7);
-  } else if (w.includes('tree') || w.includes('plant') || w.includes('forest')) {
-    // Tree
-    addLine(390, 430, 390, 270, '#78350f', 12);
-    addLine(410, 430, 410, 270, '#78350f', 12);
-    addCircle(400, 200, 75, '#10b981', 8);
-  } else {
-    // Happy Face (Default)
-    addCircle(400, 260, 75, '#eab308', 7);
-    addCircle(370, 235, 9, '#1e293b', 6);
-    addCircle(430, 235, 9, '#1e293b', 6);
-    for (let i = 0; i < 12; i++) {
-      const a1 = (i / 12) * Math.PI * 0.7 + Math.PI * 0.15;
-      const a2 = ((i + 1) / 12) * Math.PI * 0.7 + Math.PI * 0.15;
-      addLine(400 + Math.cos(a1) * 45, 260 + Math.sin(a1) * 45, 400 + Math.cos(a2) * 45, 260 + Math.sin(a2) * 45, '#dc2626', 6);
-    }
-  }
-
-  return strokes;
 }

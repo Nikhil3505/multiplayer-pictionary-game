@@ -209,24 +209,13 @@ function Room() {
                   />
                 </label>
               </div>
-              <div className="host-actions-group">
-                {roomState.players.length < 3 && (
-                  <button 
-                    onClick={() => socket.emit('add_demo_players', { roomId: id })} 
-                    className="btn secondary-btn demo-players-btn"
-                    title="Add 2 AI players (Bob & Charlie) for screen recording"
-                  >
-                    🤖 Add 2 Players
-                  </button>
-                )}
-                <button 
-                  onClick={startGame} 
-                  className="btn primary-btn start-btn" 
-                  disabled={roomState.players.length < 2}
-                >
-                  {roomState.players.length < 2 ? 'Need 2+ Players to Start' : 'Start Game'}
-                </button>
-              </div>
+              <button 
+                onClick={startGame} 
+                className="btn primary-btn start-btn" 
+                disabled={roomState.players.length < 2}
+              >
+                {roomState.players.length < 2 ? 'Need 2+ Players to Start' : 'Start Game'}
+              </button>
             </div>
           )}
 
