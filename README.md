@@ -161,6 +161,35 @@ To verify the game across 3 concurrent players on a single machine:
 - **Confetti Celebration:** Full-screen canvas confetti blast upon game conclusion.
 - **Stroke-by-Stroke Match Replay:** Vector strokes are timestamped during play. At the game over screen, players can open the Replay Modal to watch the drawing re-created in real time.
 
+### 7. Real-Time Canvas Streaming & Game Pipeline Diagram
+
+```mermaid
+graph TD
+    subgraph Drawer_Client ["✏️ Drawer Client (Active Turn)"]
+        Pointer[Pointer Events: x, y] --> VectorEngine[Vector Normalization & 60Hz Throttler]
+        VectorEngine --> LocalCanvas[Local HTML5 Canvas Context]
+        VectorEngine --> WS_Emit["Socket.emit('draw_stroke')"]
+    end
+
+    subgraph Node_Server ["⚡ Authoritative WebSocket Server (Node.js)"]
+        WS_Emit --> SocketGateway[Socket.io Gateway]
+        SocketGateway --> RoomManager[Room State & Turn Manager]
+        RoomManager --> StrokeBuffer[In-Memory Canvas History Buffer]
+        RoomManager --> TurnEngine[Turn Timer & Auto-Hint Revealer]
+        RoomManager --> AntiCheat[Anti-Cheat & Levenshtein Guess Verifier]
+        RoomManager --> Broadcast["socket.to(room).emit('draw_stroke')"]
+    end
+
+    subgraph Guesser_Clients ["👥 Guesser Clients (All Other Players)"]
+        Broadcast --> RemoteReceiver["Socket.on('draw_stroke')"]
+        RemoteReceiver --> RemoteCanvas[Synchronized Canvas Rendering]
+        GuesserChat[Chat Input: Guesses] --> ChatEmit["Socket.emit('send_message')"]
+        ChatEmit --> AntiCheat
+        AntiCheat -->|Close Guess <= 2 Edits| PrivateToast["Private 'You are close!' Toast"]
+        AntiCheat -->|Correct Word Match| ScoreAward[Dynamic Speed Points + Web Audio Chime]
+    end
+```
+
 ---
 
 ## 📐 Technical Deep Dive: Sync, Ordering, Reliability & Capacity
@@ -243,6 +272,75 @@ A complete system design document for **"Listen Together"** (20M MAU, 2M peak co
    - **DynamoDB + Redis Mesh:** Ephemeral shared listening room state and collaborative CRDT playback queues.
    - **Kafka + ClickHouse:** Real-time stream telemetry and audit logging for artist royalties.
 4. **5 Failure Modes Handled:** Complete mitigation plans for CDN regional outages, WebSocket sync node crashes, Redis partition splits, database spikes, and jittery client connections.
+
+### 2. High-Level Distributed Architecture Diagram
+
+```mermaid
+graph TD
+    %% Client Tier
+    Client[Client Apps: Web / iOS / Android / Desktop]
+    
+    %% Gateway Tier
+    Client -->|HTTPS: REST / GraphQL| APIGateway[Global API Gateway / Envoy Proxy]
+    Client -->|WSS: Persistent WebSockets| SyncGateway[WebSocket Ingress Gateway]
+    
+    %% CDN & Media Streaming
+    Client -->|HLS / DASH Audio Chunks| CDN[Global Anycast CDN: Fastly / Cloudflare]
+    CDN --> AudioStorage[(AWS S3 / GCS: Transcoded Audio Chunks)]
+    
+    %% Real-time Sync Tier
+    SyncGateway --> SyncCluster[Room Sync Service Cluster]
+    SyncCluster -->|Pub/Sub Fan-out| RedisCluster[Redis Enterprise Pub/Sub Mesh]
+    SyncCluster -->|Room State / CRDT Queues| RoomDB[(Amazon DynamoDB Global Tables)]
+    
+    %% Core Services Tier
+    APIGateway --> AuthSvc[Authentication & Permissions Service]
+    APIGateway --> CatalogSvc[Catalog & Search Service]
+    APIGateway --> IngestionSvc[Content Ingestion & Transcoding Service]
+    
+    %% Storage Tier
+    CatalogSvc --> Elasticsearch[Elasticsearch Cluster: Typo-Tolerant Search]
+    CatalogSvc --> RelationalDB[(Amazon Aurora PostgreSQL: Catalog Master)]
+    
+    %% Event Streaming & Analytics Tier
+    SyncCluster -->|Playback Events| Kafka[Apache Kafka Event Bus]
+    APIGateway -->|User Actions| Kafka
+    Kafka --> AnalyticsWorker[Analytics & Reporting Workers]
+    Kafka --> RoyaltiesProcessor[Royalties Settlement Engine]
+    AnalyticsWorker --> ClickHouse[(ClickHouse OLAP Database)]
+```
+
+### 3. Real-Time Fan-Out Sequence Diagram (5,000 Concurrent Listeners)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Host as Host Client (Room #4092)
+    participant EdgeGW as Sync Gateway (Node A)
+    participant Redis as Redis Pub/Sub (Channel: room:4092)
+    participant ClusterNodes as Sync Worker Nodes (Nodes B..Z)
+    participant Listeners as 5,000 Listener Clients
+    participant Dynamo as DynamoDB (Room State)
+
+    Host->>EdgeGW: WSS: Event { action: 'PAUSE', trackId: 'trk_982', trackOffsetMs: 84200, clientTimestamp: T_client }
+    Note over EdgeGW: 1. Validate host authorization<br/>2. Stamp monotonic server time T0
+    
+    EdgeGW->>Dynamo: Async update state (status: PAUSED, offset: 84200)
+    EdgeGW->>Redis: PUBLISH room:4092 { action: 'PAUSE', trackOffsetMs: 84200, serverTimestamp: T0 }
+
+    par Low-Latency Broadcast across Mesh
+        Redis-->>EdgeGW: Message Delivered
+        Redis-->>ClusterNodes: Message Delivered to all subscribed nodes
+    end
+
+    par Concurrent WebSocket Push to Listeners (Fan-Out)
+        EdgeGW->>Host: ACK / Confirm Pause
+        EdgeGW->>Listeners: Push SyncEvent { action: 'PAUSE', trackOffsetMs: 84200, serverTimestamp: T0 }
+        ClusterNodes->>Listeners: Push SyncEvent { action: 'PAUSE', trackOffsetMs: 84200, serverTimestamp: T0 }
+    end
+
+    Note over Listeners: 3. Clients receive event (latency ~45-80ms)<br/>4. Pause local HTML5/Native audio pipeline at 84.200s
+```
 
 ---
 
