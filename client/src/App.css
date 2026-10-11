@@ -478,6 +478,32 @@ body {
   max-width: 260px;
 }
 
+.host-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.demo-players-btn {
+  width: auto;
+  height: 36px;
+  padding: 0 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #a7f3d0;
+  white-space: nowrap;
+}
+
+.demo-players-btn:hover {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: rgba(16, 185, 129, 0.6);
+  color: #ffffff;
+}
+
 .start-btn {
   width: auto;
   height: 36px;
@@ -485,6 +511,7 @@ body {
   font-size: 0.85rem;
   font-weight: 800;
   border-radius: var(--radius-sm);
+  white-space: nowrap;
 }
 
 .waiting-host-pill {
