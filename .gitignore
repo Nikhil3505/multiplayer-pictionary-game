@@ -23,3 +23,5 @@ build
 # misc
 .DS_Store
 .vscode
+*.mp4
+*.zip
