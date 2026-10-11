@@ -89,7 +89,7 @@ function Home() {
             onClick={() => setShowMusicModal(true)} 
             className="doc-link-btn"
           >
-            🎧 Question 2: Collaborative Music Architecture & Logic
+            🎧 Collaborative Music Architecture & System Design
           </button>
         </div>
       </div>

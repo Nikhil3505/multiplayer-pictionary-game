@@ -1,4 +1,4 @@
-# Full Stack Developer Assignment: Multiplayer Drawing & Guessing Game & System Architecture
+# Draw & Guess (Pictionary) - Real-Time Multiplayer Game & Distributed Architecture
 
 A production-grade, real-time multiplayer drawing and guessing game (Skribbl.io style) built with **React**, **Node.js**, **Socket.io**, and the **Web Audio API**, accompanied by an enterprise-grade system architecture and design document for a collaborative music streaming service ("Listen Together").
 
@@ -11,27 +11,27 @@ A production-grade, real-time multiplayer drawing and guessing game (Skribbl.io 
 ---
 
 ## 📑 Table of Contents
-1. [Deliverables Summary](#-deliverables-summary)
+1. [Project Overview & Key Components](#-project-overview--key-components)
 2. [Step-by-Step Instructions: How to Run](#-step-by-step-instructions-how-to-run)
 3. [How to Verify & Test Multiplayer (3 Players)](#-how-to-verify--test-multiplayer-3-players)
-4. [Question 1: Features & Requirements Fulfillment](#-question-1-features--requirements-fulfillment)
-5. [Question 1: Technical Note (Required Deliverable)](#-question-1-technical-note)
-6. [Question 2: Collaborative Music Streaming Architecture](#-question-2-collaborative-music-streaming-architecture)
+4. [Core Game Features & Architecture](#-core-game-features--architecture)
+5. [Technical Deep Dive: Sync, Ordering, Reliability & Capacity](#-technical-deep-dive-sync-ordering-reliability--capacity)
+6. [System Architecture: Collaborative Music Streaming Platform ("Listen Together")](#-system-architecture-collaborative-music-streaming-platform-listen-together)
 7. [Repository File Structure](#-repository-file-structure)
-8. [Submission Checklist](#-submission-checklist)
+8. [Feature Verification Checklist](#-feature-verification-checklist)
 
 ---
 
-## 🎯 Deliverables Summary
+## 🎯 Project Overview & Key Components
 
-| Deliverable | Location | Description |
+| Component | Location | Description |
 | :--- | :--- | :--- |
-| **Question 1: Web App** | `/client` & `/server` | Real-time Pictionary game with vector streaming, rooms, turn flow, anti-cheat, audio synthesis, confetti, and match replay. |
-| **Question 1: Technical Note** | Below in this `README.md` | In-depth analysis of canvas sync, ordering, restart resilience, and server capacity estimation. |
+| **Multiplayer Game Web App** | `/client` & `/server` | Real-time Pictionary game with vector streaming, rooms, turn flow, anti-cheat, audio synthesis, confetti, and match replay. |
+| **Technical Deep Dive** | Below in this `README.md` | In-depth analysis of canvas sync, ordering, restart resilience, and server capacity estimation. |
 | **Screen Recording** | [Google Drive Demo Video](https://drive.google.com/file/d/16Re_kM8Pj2z1_efg1XNZv3YKvAOdn0kr/view?usp=sharing) | 2-minute walkthrough showing 3 players in separate browser windows. |
-| **Question 2: System Architecture (Interactive HTML)** | [`/design_doc.html`](design_doc.html) or `http://localhost:5173/design_doc.html` | Self-contained, printable design document with interactive Mermaid.js diagrams and system metrics. |
-| **Question 2: System Architecture (Markdown)** | [`/design_doc.md`](design_doc.md) | Full architectural specification covering audio delivery, sub-200ms sync, persistence, failure scenarios, and roadmap. |
-| **Question 2: In-App Interactive Modal** | Click **"🎧 Music Logic Doc"** in game header | Allows interviewers/reviewers to inspect Question 2 directly within the running application. |
+| **Collaborative Music System Design (Interactive HTML)** | [`/design_doc.html`](design_doc.html) or `http://localhost:5173/design_doc.html` | Self-contained, printable design document with interactive Mermaid.js diagrams and system metrics. |
+| **Collaborative Music System Design (Markdown)** | [`/design_doc.md`](design_doc.md) | Full architectural specification covering audio delivery, sub-200ms sync, persistence, failure scenarios, and roadmap. |
+| **In-App Architecture Modal** | Click **"🎧 Music Logic Doc"** in game header | Allows inspecting the music streaming system design directly within the running application. |
 
 ---
 
@@ -116,7 +116,7 @@ To verify the game across 3 concurrent players on a single machine:
 
 ---
 
-## ✨ Question 1: Features & Requirements Fulfillment
+## ✨ Core Game Features & Architecture
 
 ### 1. Rooms & Host Configuration
 - **Shareable Links:** Every room has a unique 6-character code and shareable URL (`/room/:roomId`).
@@ -163,7 +163,7 @@ To verify the game across 3 concurrent players on a single machine:
 
 ---
 
-## 📐 Question 1: Technical Note
+## 📐 Technical Deep Dive: Sync, Ordering, Reliability & Capacity
 
 ### 1. How you sync the canvas and send stroke data
 Instead of sending rasterized image snapshots (Base64 PNGs) which consume excessive bandwidth ($100\text{--}500\text{ KB}$ per frame) and cause perceptible stutter, our implementation uses **lightweight vector coordinate segments**:
@@ -227,7 +227,7 @@ In the current prototype, active room state is stored in Node.js process memory.
 
 ---
 
-## 🎧 Question 2: Collaborative Music Streaming Architecture
+## 🎧 System Architecture: Collaborative Music Streaming Platform ("Listen Together")
 
 A complete system design document for **"Listen Together"** (20M MAU, 2M peak concurrent listeners, 200,000 shared rooms) is included in two formats:
 - **Interactive Web Document:** [`design_doc.html`](design_doc.html) (open directly in your browser or view at `http://localhost:5173/design_doc.html`).
@@ -250,9 +250,9 @@ A complete system design document for **"Listen Together"** (20M MAU, 2M peak co
 
 ```text
 pictionary-game/
-├── README.md                     # Comprehensive submission documentation & technical notes
-├── design_doc.md                 # Question 2: Collaborative music streaming system design (Markdown)
-├── design_doc.html               # Question 2: Interactive, styled HTML document with Mermaid diagrams
+├── README.md                     # Comprehensive project documentation & technical notes
+├── design_doc.md                 # Collaborative music streaming system design (Markdown)
+├── design_doc.html               # Interactive, styled HTML document with Mermaid diagrams
 ├── package.json                  # Root orchestration package (npm start, install:all)
 ├── package-lock.json             # Root lockfile
 ├── .gitignore                    # Git ignore file (excludes node_modules, dist, logs)
@@ -269,7 +269,7 @@ pictionary-game/
     ├── package.json              # Client dependencies (react, socket.io-client, react-hot-toast, canvas-confetti)
     ├── public/
     │   ├── favicon.svg           # High-resolution vector favicon
-    │   └── design_doc.html       # Question 2 design doc served statically
+    │   └── design_doc.html       # Music design doc served statically
     └── src/
         ├── App.jsx               # Application root & router configuration
         ├── App.css               # Modern design system (dark mode, glassmorphism, mobile responsive)
@@ -283,16 +283,21 @@ pictionary-game/
             ├── Chat.jsx          # Live guessing chat, system alerts, anti-spoil filtering
             ├── PlayersList.jsx   # Dynamic score leaderboard, badges (You, Host, Drawing, Guessed)
             ├── ReplayViewer.jsx  # Post-game stroke-by-stroke replay player
-            └── MusicDesignModal.jsx # Interactive in-app Question 2 system design modal
+            └── MusicDesignModal.jsx # Interactive in-app system design modal
 ```
 
 ---
 
-## ✅ Submission Checklist
+## ✅ Feature Verification Checklist
 
-- [x] **Single Command Execution:** Game starts cleanly via `npm start`.
-- [x] **3-Player Video Recording:** Demonstrated across separate browser sessions.
-- [x] **Full Question 1 Requirements:** Rooms, drawing tools, turn flow, hints, anti-cheat, audio, and stroke replay.
-- [x] **Question 1 Technical Note:** Explaining canvas sync, ordering, restart recovery, and server capacity.
-- [x] **Question 2 Architecture Deliverable:** Complete System Architecture & Design document in Markdown, interactive HTML, and in-app modal.
-- [x] **Clean Repository:** Zero build errors, zero dead files, fully documented.
+- [x] **Rooms & Links:** Create/join room via code or URL, host configurable settings.
+- [x] **Drawing Tools:** Pen, color picker, brush size, eraser, bucket fill, undo, and clear canvas.
+- [x] **Real-Time Sync:** Low-latency vector stroke streaming across all connected clients.
+- [x] **Turn Flow:** 3-word selection with auto-selection countdown, timer, and dynamic hints.
+- [x] **Scoring:** Time-scaled points for guessers and reward points for drawers.
+- [x] **Edge Cases:** Drawer disconnect auto-advance, 30-second disconnect grace recovery, late joiner canvas sync.
+- [x] **Anti-Cheat:** Secret word scrubbed from network, spoiler suppression, fuzzy near-miss hints, and guess rate limiting.
+- [x] **Polish:** Procedural Web Audio API sound effects, confetti celebration, and stroke-by-stroke match replay.
+- [x] **Mobile Responsive:** Adaptive layout with mobile tab switcher and touch-safe canvas drawing.
+- [x] **Technical Deep Dive Included:** Complete explanations of sync data format, ordering, restarts, and capacity estimation.
+- [x] **Distributed Architecture:** Full collaborative music streaming design document provided in Markdown, interactive HTML, and in-app modal.
