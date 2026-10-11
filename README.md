@@ -5,7 +5,7 @@ A production-grade, real-time multiplayer drawing and guessing game (Skribbl.io 
 ---
 
 ## 🎥 Screen Recording Demo Video
-- **Video Demonstration Link:** [👉 **Click Here to Watch 2-Minute 3-Player Demo Recording**](YOUR_RECORDING_LINK_HERE) *(Replace with your Loom / Google Drive / YouTube link)*
+- **Video Demonstration Link:** [👉 **Click Here to Watch 2-Minute 3-Player Demo Recording**](https://drive.google.com/file/d/16Re_kM8Pj2z1_efg1XNZv3YKvAOdn0kr/view?usp=sharing)
 - **Demo Scope:** 3 concurrent players in separate browser windows demonstrating real-time vector stroke synchronization, turn flow, 3-word selection, exam-style countdown timer with audio warning ticks, anti-cheat & spoiler filters, and post-game vector drawing replay.
 
 ---
@@ -28,7 +28,7 @@ A production-grade, real-time multiplayer drawing and guessing game (Skribbl.io 
 | :--- | :--- | :--- |
 | **Question 1: Web App** | `/client` & `/server` | Real-time Pictionary game with vector streaming, rooms, turn flow, anti-cheat, audio synthesis, confetti, and match replay. |
 | **Question 1: Technical Note** | Below in this `README.md` | In-depth analysis of canvas sync, ordering, restart resilience, and server capacity estimation. |
-| **Screen Recording** | [Demo Video Link](YOUR_RECORDING_LINK_HERE) | 2-minute walkthrough showing 3 players in separate browser windows. |
+| **Screen Recording** | [Google Drive Demo Video](https://drive.google.com/file/d/16Re_kM8Pj2z1_efg1XNZv3YKvAOdn0kr/view?usp=sharing) | 2-minute walkthrough showing 3 players in separate browser windows. |
 | **Question 2: System Architecture (Interactive HTML)** | [`/design_doc.html`](design_doc.html) or `http://localhost:5173/design_doc.html` | Self-contained, printable design document with interactive Mermaid.js diagrams and system metrics. |
 | **Question 2: System Architecture (Markdown)** | [`/design_doc.md`](design_doc.md) | Full architectural specification covering audio delivery, sub-200ms sync, persistence, failure scenarios, and roadmap. |
 | **Question 2: In-App Interactive Modal** | Click **"🎧 Music Logic Doc"** in game header | Allows interviewers/reviewers to inspect Question 2 directly within the running application. |
